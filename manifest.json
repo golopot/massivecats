@@ -1,0 +1,15 @@
+{
+    "manifest_version": 2,
+    "version": "0.0.1",
+    "name": "wikipedia-cat",
+    "description": "",
+
+    "content_scripts": [
+        {
+      "matches": ["https://en.wikipedia.org/*", "https://zh.wikipedia.org/*"],
+      "js": ["1.js"]
+        }
+    ]
+
+
+}

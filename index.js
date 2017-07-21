@@ -1,5 +1,3 @@
-;(function(){
-
 'use strict'
 
 const app = {}
@@ -85,7 +83,7 @@ function doTheThing(){
 	}
 
 	Promise.all(chunks.map( links => runOneChunk(links, cat) ))
-	.then( x => console.log('all done.'))
+	.then( x => console.log('Link query completed.'))
 	.catch( e => console.error(e))
 }
 
@@ -118,7 +116,6 @@ function fetchCategoryOfTitle(links, cat){
 
 
 function processResponse(links, res){
-	if( res.warnings ) console.warn(res.warnings)
 
 	var pages = res.query.pages
 	var p = {}
@@ -203,22 +200,39 @@ function decorateLinks(links){
 
 function addPageToCategory(link, category){
 
-	function wikitextAddCategory(text, category){
+	function wikitextAddCategory(text, category, isTemplate){
 
 		var cat = category[0].toUpperCase() + category.slice(1)
 		var line = `[[Category:${cat}]]`
 		if( text.indexOf(line) !== -1 ){
 			return Promise.reject('text already has the category.')
-		}else{
-			if(text[text.length-1]!='\n'){ text += '\n' }
-			return text + line + '\n'
 		}
+
+		var out = ''
+
+		if(!isTemplate){
+			out = text.replace(/\n*$/, '\n') + line + '\n'
+		}
+
+		if(isTemplate){
+			const ind = text.indexOf('</noinclude>')
+			if(ind == -1){
+				out = text.reaplce(/\n*$/,'') +`<noinclude>\n${line}\n</noinclude>`
+			}
+			else{
+				out = text.slice(0, ind).replace(/\n*$/, '\n')
+					+ line + '\n'
+					+ text.slice(ind)
+			}
+		}
+
+		return out
 	}
 
-
+	var isTemplate = link.destTitle.slice(0,9) === 'Template:'
 	var summary = `add [[:Category:${category}]] using ${app.name}.`
 	getRevision(link.destTitle)
-	.then( text => wikitextAddCategory(text, category ) )
+	.then( text => wikitextAddCategory(text, category, isTemplate) )
 	.then( text => writeRevision(link.destTitle, text, summary) )
 	.then( res => modifyLinkView(res, link) )
 	.catch( e => console.error(e) )
@@ -229,10 +243,12 @@ function removePageFromCategory(link, category){
 
 	function wikitextRemoveCategory(text, category){
 		var i = category
-		var k = "[" + i[0].toUpperCase() + i[0].toLowerCase() + ']' + i.slice(1)
-		var r = new RegExp(`\n?\\[\\[ ?[Cc]ategory ?: ?${k} ?\]\]`)
-		var re = new RegExp(r)
-		if(!re.test(text)) throw(new Error('Cannot find category in wikitext.'))
+		var k = '[' + i[0].toUpperCase() + i[0].toLowerCase() + ']' + i.slice(1)
+		var re = new RegExp(`\n?\\[\\[ ?[Cc]ategory ?: ?${k} ?\]\]`)
+		if(!re.test(text)){
+			throw(new Error('Cannot find category in wikitext.'))
+			console.error('Cannot find category in wikitext.')
+		}
 		return text.replace(re, '')
 	}
 
@@ -241,7 +257,6 @@ function removePageFromCategory(link, category){
 	.then( text => wikitextRemoveCategory(text, category ) )
 	.then( text => writeRevision(link.destTitle, text, summary) )
 	.then( res => modifyLinkView(res, link) )
-	.catch( e => checkError(link, e) )
 }
 
 function checkError(r){
@@ -437,7 +452,6 @@ function getEditToken(){
 
 
 function main(){
-	console.log('cat-tool')
 	injectStyleToHead()
 	injectButtonToView()
 	if(localStorage['cat-tool-open']){
@@ -448,6 +462,3 @@ function main(){
 }
 
 main()
-
-
-})();
